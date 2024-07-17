@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Minecraft-like Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/PointerLockControls.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/PointerLockControls.js';
+
+let camera, scene, renderer, controls;
+let raycaster, blockType;
+const objects = [];
+const clock = new THREE.Clock();
+
+init();
+animate();
+
+function init() {
+    // Setup scene and camera
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.y = 10;
+
+    // Setup renderer
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Setup controls
+    controls = new PointerLockControls(camera, document.body);
+    document.body.addEventListener('click', () => controls.lock(), false);
+    scene.add(controls.getObject());
+
+    // Setup raycaster
+    raycaster = new THREE.Raycaster();
+
+    // Create a basic grid of blocks
+    for (let x = -50; x < 50; x += 5) {
+        for (let z = -50; z < 50; z += 5) {
+            addBlock(x, 0, z);
+        }
+    }
+
+    // Event listeners
+    window.addEventListener('resize', onWindowResize, false);
+    document.addEventListener('keydown', onKeyDown, false);
+    document.addEventListener('mousedown', onMouseDown, false);
+
+    // Initial block type
+    blockType = 0x8B4513;
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function addBlock(x, y, z) {
+    const blockGeometry = new THREE.BoxGeometry(5, 5, 5);
+    const blockMaterial = new THREE.MeshBasicMaterial({ color: blockType });
+    const block = new THREE.Mesh(blockGeometry, blockMaterial);
+    block.position.set(x, y, z);
+    scene.add(block);
+    objects.push(block);
+}
+
+function removeBlock(block) {
+    scene.remove(block);
+    const index = objects.indexOf(block);
+    if (index > -1) {
+        objects.splice(index, 1);
+    }
+}
+
+function onKeyDown(event) {
+    if (event.code === 'KeyB') {
+        blockType = blockType === 0x8B4513 ? 0xFFD700 : 0x8B4513;
+    }
+}
+
+function onMouseDown(event) {
+    if (controls.isLocked === true) {
+        raycaster.setFromCamera(new THREE.Vector2(), camera);
+        const intersects = raycaster.intersectObjects(objects);
+        if (intersects.length > 0) {
+            const intersect = intersects[0];
+            if (event.button === 0) { // Left click to remove
+                removeBlock(intersect.object);
+            } else if (event.button === 2) { // Right click to add
+                const position = intersect.point.clone().add(intersect.face.normal);
+                position.divideScalar(5).floor().multiplyScalar(5).addScalar(2.5);
+                addBlock(position.x, position.y, position.z);
+            }
+        }
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update(clock.getDelta());
+    renderer.render(scene, camera);
+}
